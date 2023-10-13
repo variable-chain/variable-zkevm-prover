@@ -109,19 +109,19 @@ uint64_t PageManagerPerformanceTest(void){
         for (uint64_t i = 0; i < numPositions; ++i) {
             uint64_t* pageData = (uint64_t *)pageManagerFile2.getPageAddress(position[i]);
             if(position[i] != 0){
-                assert(pageData[0] == (pageData[2] + position[i]) );
+                assert(pageData[0] == (pageData[2] + position[i]));
                 assert(pageData[1] == position[i] );
             }
         }
-        if(k%printFreq == 0 && k>0){
+        if(k%printFreq == 0){
 
             std::cout << "Iteration: " << k << std::endl;
-            std::cout << "Average time first read/write: " << avgTimeFistWrite/k << " seconds" << std::endl;
-            std::cout << "Average throughput first read/write (last): " << avgThroughputFirstWrite/k << "( "<< avgThroughputFirstWriteLast/printFreq <<") MBytes/s" << std::endl;
-            std::cout << "Average time second read/write: " << avgTimeSecondWrite/k << " seconds" << std::endl;
-            std::cout << "Average throughput second read/write (last): " << avgThroughputSecondWrite/k << "( "<< avgThroughputSecondWriteLast/printFreq <<") MBytes/s" << std::endl;
-            std::cout << "Average time flush: " << avgTimeFlush/k << " seconds" << std::endl;
-            std::cout << "Average throughput flush (last): " << avgThroughputFlush/k << "( "<< avgThroughputFlushLast/printFreq <<") MBytes/s" << std::endl << std::endl;
+            std::cout << "Average time first read/write: " << avgTimeFistWrite/(k+1) << " seconds" << std::endl;
+            std::cout << "Average throughput first read/write (last): " << avgThroughputFirstWrite/(k+1) << "( "<< avgThroughputFirstWriteLast/printFreq <<") MBytes/s" << std::endl;
+            std::cout << "Average time second read/write: " << avgTimeSecondWrite/(k+1) << " seconds" << std::endl;
+            std::cout << "Average throughput second read/write (last): " << avgThroughputSecondWrite/(k+1) << "( "<< avgThroughputSecondWriteLast/printFreq <<") MBytes/s" << std::endl;
+            std::cout << "Average time flush: " << avgTimeFlush/(k+1) << " seconds" << std::endl;
+            std::cout << "Average throughput flush (last): " << avgThroughputFlush/(k+1) << "( "<< avgThroughputFlushLast/printFreq <<") MBytes/s" << std::endl << std::endl;
             avgThroughputFirstWriteLast = 0;
             avgThroughputSecondWriteLast = 0;
             avgThroughputFlushLast = 0;
