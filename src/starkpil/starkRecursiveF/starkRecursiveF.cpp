@@ -4,7 +4,7 @@
 #include "ntt_goldilocks.hpp"
 #include "fr.hpp"
 #include "poseidon_opt.hpp"
-#include "starkRecursiveFSteps.hpp"
+#include "RecursiveFSteps.hpp"
 #include "zklog.hpp"
 #include "exit_process.hpp"
 
@@ -109,6 +109,11 @@ StarkRecursiveF::StarkRecursiveF(const Config &config, void *_pAddress) : config
     cm4_2ns = &mem[starkInfo.mapOffsets.section[eSection::cm4_2ns]];
     p_q_2ns = &mem[starkInfo.mapOffsets.section[eSection::q_2ns]];
     p_f_2ns = &mem[starkInfo.mapOffsets.section[eSection::f_2ns]];
+
+    TimerStart(CHELPERS_ALLOCATION);
+    cHelpersBinFile = BinFileUtils::openExisting(config.recursivefCHelpers, "chps", 1);
+    chelpers.loadCHelpers(cHelpersBinFile.get());
+    TimerStopAndLog(CHELPERS_ALLOCATION);
 }
 
 StarkRecursiveF::~StarkRecursiveF()
@@ -139,17 +144,22 @@ StarkRecursiveF::~StarkRecursiveF()
     }
 
     free(pBuffer);
+
+    BinFileUtils::BinFile *pCHelpers = cHelpersBinFile.release();
+    assert(cHelpersBinFile.get() == nullptr);
+    assert(cHelpersBinFile == nullptr);
+    delete pCHelpers;
 }
 
 void StarkRecursiveF::genProof(FRIProofC12 &proof, Goldilocks::Element publicInputs[8])
 {
 
-    StarkRecursiveFSteps recurisveFsteps;
-    StarkRecursiveFSteps *steps = &recurisveFsteps;
+    RecursiveFSteps chelpersSteps;
+    RecursiveFSteps *steps = &chelpersSteps;
     // Initialize vars
     uint64_t numCommited = starkInfo.nCm1;
     TranscriptBN128 transcript;
-    Polinomial evals(N, FIELD_EXTENSION);
+    Polinomial evals(starkInfo.evMap.size(), FIELD_EXTENSION);
     Polinomial xDivXSubXi(NExtended, FIELD_EXTENSION);
     Polinomial xDivXSubWXi(NExtended, FIELD_EXTENSION);
     Polinomial challenges(NUM_CHALLENGES, FIELD_EXTENSION);
@@ -213,12 +223,7 @@ void StarkRecursiveF::genProof(FRIProofC12 &proof, Goldilocks::Element publicInp
     transcript.getField((uint64_t *)challenges[0]); // u
     transcript.getField((uint64_t *)challenges[1]); // defVal
     TimerStart(STARK_RECURSIVE_F_STEP_2_CALCULATE_EXPS);
-
-#pragma omp parallel for
-    for (uint64_t i = 0; i < N; i++)
-    {
-        steps->step2prev_first(params, i);
-    }
+    steps->calculateExpressions(starkInfo, params, chelpers.stagesInfo["step2"], USE_GENERIC_PARSER);
     TimerStopAndLog(STARK_RECURSIVE_F_STEP_2_CALCULATE_EXPS);
 
     TimerStart(STARK_RECURSIVE_F_STEP_2_CALCULATEH1H2);
@@ -254,11 +259,7 @@ void StarkRecursiveF::genProof(FRIProofC12 &proof, Goldilocks::Element publicInp
     transcript.getField((uint64_t *)challenges[3]); // betta
 
     TimerStart(STARK_RECURSIVE_F_STEP_3_PREV_CALCULATE_EXPS);
-#pragma omp parallel for
-    for (uint64_t i = 0; i < N; i++)
-    {
-        steps->step3prev_first(params, i);
-    }
+    steps->calculateExpressions(starkInfo, params, chelpers.stagesInfo["step3"], USE_GENERIC_PARSER);
     TimerStopAndLog(STARK_RECURSIVE_F_STEP_3_PREV_CALCULATE_EXPS);
     TimerStart(STARK_RECURSIVE_F_STEP_3_CALCULATE_Z);
 
@@ -288,11 +289,7 @@ void StarkRecursiveF::genProof(FRIProofC12 &proof, Goldilocks::Element publicInp
     TimerStopAndLog(STARK_RECURSIVE_F_STEP_3_CALCULATE_Z);
 
     TimerStart(STARK_RECURSIVE_F_STEP_3_CALCULATE_EXPS);
-    #pragma omp parallel for
-    for (uint64_t i = 0; i < N; i++)
-    {
-        steps->step3_first(params, i);
-    }
+    steps->calculateExpressions(starkInfo, params, chelpers.stagesInfo["step3_after"], USE_GENERIC_PARSER);
     TimerStopAndLog(STARK_RECURSIVE_F_STEP_3_CALCULATE_EXPS);
 
     TimerStart(STARK_RECURSIVE_F_STEP_3_LDE_AND_MERKLETREE);
@@ -320,11 +317,7 @@ void StarkRecursiveF::genProof(FRIProofC12 &proof, Goldilocks::Element publicInp
     TimerStart(STARK_RECURSIVE_F_STEP_4_CALCULATE_EXPS_2NS);
     uint64_t extendBits = starkInfo.starkStruct.nBitsExt - starkInfo.starkStruct.nBits;
 
-#pragma omp parallel for
-    for (uint64_t i = 0; i < NExtended; i++)
-    {
-        steps->step42ns_first(params, i);
-    }
+    steps->calculateExpressions(starkInfo, params, chelpers.stagesInfo["step4"], USE_GENERIC_PARSER);
 
     Polinomial qq1 = Polinomial(NExtended, starkInfo.qDim, "qq1");
     Polinomial qq2 = Polinomial(NExtended * starkInfo.qDeg, starkInfo.qDim, "qq2");
@@ -627,11 +620,7 @@ void StarkRecursiveF::genProof(FRIProofC12 &proof, Goldilocks::Element publicInp
     }
     TimerStart(STARK_RECURSIVE_F_STEP_5_CALCULATE_EXPS);
 
-#pragma omp parallel for
-    for (uint64_t i = 0; i < NExtended; i++)
-    {
-        steps->step52ns_first(params, i);
-    }
+    steps->calculateExpressions(starkInfo, params, chelpers.stagesInfo["step5"], USE_GENERIC_PARSER);
 
     TimerStopAndLog(STARK_RECURSIVE_F_STEP_5_CALCULATE_EXPS);
     TimerStopAndLog(STARK_RECURSIVE_F_STEP_5);

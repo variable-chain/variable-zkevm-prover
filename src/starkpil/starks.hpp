@@ -14,6 +14,8 @@
 #include "steps.hpp"
 #include "zklog.hpp"
 #include "exit_process.hpp"
+#include "chelpers.hpp"
+#include "chelpers_steps.hpp"
 
 #define STARK_C12_A_NUM_TREES 5
 #define NUM_CHALLENGES 8
@@ -24,6 +26,7 @@ struct StarkFiles
     bool mapConstPolsFile;
     std::string zkevmConstantsTree;
     std::string zkevmStarkInfo;
+    std::string zkevmCHelpers;
 };
 
 class Starks
@@ -31,7 +34,6 @@ class Starks
 public:
     const Config &config;
     StarkInfo starkInfo;
-    uint64_t nrowsStepBatch;
 
 private:
     void *pConstPolsAddress;
@@ -68,7 +70,10 @@ private:
 
     Polinomial x;
 
-    void merkelizeMemory(); // function for DBG purposes
+    std::unique_ptr<BinFileUtils::BinFile> cHelpersBinFile;
+    CHelpers chelpers;
+
+void merkelizeMemory(); // function for DBG purposes
 
 public:
     Starks(const Config &config, StarkFiles starkFiles, void *_pAddress) : config(config),
@@ -85,7 +90,6 @@ public:
                                                                            pAddress(_pAddress),
                                                                            x(config.generateProof() ? N << (starkInfo.starkStruct.nBitsExt - starkInfo.starkStruct.nBits) : 0, config.generateProof() ? FIELD_EXTENSION : 0)
     {
-        nrowsStepBatch = 1;
         // Avoid unnecessary initialization if we are not going to generate any proof
         if (!config.generateProof())
             return;
@@ -189,6 +193,13 @@ public:
         treesGL[3] = new MerkleTreeGL(NExtended, starkInfo.mapSectionsN.section[eSection::cm4_2ns], cm4_2ns);
         treesGL[4] = new MerkleTreeGL((Goldilocks::Element *)pConstTreeAddress);
         TimerStopAndLog(MERKLE_TREE_ALLOCATION);
+
+        TimerStart(CHELPERS_ALLOCATION);
+        if(!starkFiles.zkevmCHelpers.empty()) {
+            cHelpersBinFile = BinFileUtils::openExisting(starkFiles.zkevmCHelpers, "chps", 1);
+            chelpers.loadCHelpers(cHelpersBinFile.get());
+        }
+        TimerStopAndLog(CHELPERS_ALLOCATION);
     };
     ~Starks()
     {
@@ -220,9 +231,15 @@ public:
         {
             delete treesGL[i];
         }
+
+        BinFileUtils::BinFile *pCHelpers = cHelpersBinFile.release();
+        assert(cHelpersBinFile.get() == nullptr);
+        assert(cHelpersBinFile == nullptr);
+        delete pCHelpers;
+        
     };
 
-    void genProof(FRIProof &proof, Goldilocks::Element *publicInputs, Goldilocks::Element verkey[4], Steps *steps);
+    void genProof(FRIProof &proof, Goldilocks::Element *publicInputs, Goldilocks::Element verkey[4], CHelpersSteps *chelpersSteps);
 
     Polinomial *transposeH1H2Columns(void *pAddress, uint64_t &numCommited, Goldilocks::Element *pBuffer);
     void transposeH1H2Rows(void *pAddress, uint64_t &numCommited, Polinomial *transPols);

@@ -18,6 +18,7 @@
 #include "constant_pols_starks.hpp"
 #include "commit_pols_starks.hpp"
 #include "steps.hpp"
+#include "chelpers.hpp"
 
 #define BN128_ARITY 16
 #define STARK_RECURSIVE_F_NUM_TREES 5
@@ -59,6 +60,9 @@ private:
 
     Goldilocks::Element *pBuffer;
 
+    std::unique_ptr<BinFileUtils::BinFile> cHelpersBinFile;
+    CHelpers chelpers;
+    
     void *pAddress;
 
 public:
