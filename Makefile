@@ -33,8 +33,8 @@ else
 endif
 
 # Decide which *chelpers*.hpp will be api
-ifeq ($(filter test,$(MAKECMDGOALS)),api)
-    CXXFLAGS += -D__API__
+ifeq ($(filter api,$(MAKECMDGOALS)),api)
+    CXXFLAGS += -D__ZKPROVER_API__
 endif
 
 # Verify if AVX-512 is supported
