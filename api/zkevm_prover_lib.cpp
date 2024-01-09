@@ -4,20 +4,12 @@
 #include "proof2zkinStark.hpp"
 #include "api_steps.hpp"
 
-int fibonacci_test(){
+int generateProof(std::string constPols, std::string constTree, std::string starkInfoFile, std::string commitPols, std::string verkey ){
 
-   Config config;
+    Config config;
     config.runFileGenBatchProof = true; // So that starkInfo is created
     config.mapConstPolsFile = false;
     config.mapConstantsTreeFile = false;
-    
-
-    string constPols = "test/examples/fibonacci/fibonacci.const";
-    string constTree = "test/examples/fibonacci/fibonacci.consttree";
-    string starkInfoFile = "test/examples/fibonacci/fibonacci.starkinfo.json";
-    string commitPols = "test/examples/fibonacci/fibonacci.commit";
-    string verkey = "test/examples/fibonacci/fibonacci.verkey.json";
-
 
     StarkInfo starkInfo(config, starkInfoFile);
 
@@ -68,9 +60,9 @@ int fibonacci_test(){
     jProof["publics"] = publicStarkJson;
     zkin["publics"] = publicStarkJson;
 
-    json2file(publicStarkJson, "runtime/output/publics.json");
-    json2file(zkin, "runtime/output/zkin.json");
-    json2file(jProof, "runtime/output/jProof.json");
+    json2file(publicStarkJson, "./publics.json");
+    json2file(zkin, "./zkin.json");
+    json2file(jProof, "./jProof.json");
 
     return 1;
 }
