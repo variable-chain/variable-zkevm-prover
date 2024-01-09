@@ -18,6 +18,18 @@ StarkInfo::StarkInfo(const Config &config, string file) : config(config)
     TimerStopAndLog(STARK_INFO_LOAD);
 }
 
+StarkInfo::StarkInfo(const Config &config, json starkInfoJson) : config(config)
+{
+    // Avoid initialization if we are not going to generate any proof
+    if (!config.generateProof())
+        return;
+
+    // Load contents from json file
+    TimerStart(STARK_INFO_LOAD);
+    load(starkInfoJson);
+    TimerStopAndLog(STARK_INFO_LOAD);
+}
+
 void StarkInfo::load(json j)
 {
     starkStruct.nBits = j["starkStruct"]["nBits"];

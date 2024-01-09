@@ -312,6 +312,8 @@ public:
     
     /* Constructor */
     StarkInfo(const Config &config, string file);
+    StarkInfo(const Config &config, json starkInfoJson);
+
 
     /* Loads data from a json object */
     void load (json j);

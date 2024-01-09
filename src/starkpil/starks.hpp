@@ -190,6 +190,93 @@ public:
         treesGL[4] = new MerkleTreeGL((Goldilocks::Element *)pConstTreeAddress);
         TimerStopAndLog(MERKLE_TREE_ALLOCATION);
     };
+    Starks(const Config &config, void *pConstPolsAddress_, void* pConstTreeAddress_, json zkevmStarkInfoJson, void *_pAddress) : 
+                                                                            config(config),
+                                                                            starkInfo(config, zkevmStarkInfoJson),
+                                                                            zi(config.generateProof() ? starkInfo.starkStruct.nBits : 0,
+                                                                              config.generateProof() ? starkInfo.starkStruct.nBitsExt : 0),
+                                                                            N(config.generateProof() ? 1 << starkInfo.starkStruct.nBits : 0),
+                                                                            NExtended(config.generateProof() ? 1 << starkInfo.starkStruct.nBitsExt : 0),
+                                                                            ntt(config.generateProof() ? 1 << starkInfo.starkStruct.nBits : 0),
+                                                                            nttExtended(config.generateProof() ? 1 << starkInfo.starkStruct.nBitsExt : 0),
+                                                                            x_n(config.generateProof() ? N : 0, config.generateProof() ? 1 : 0),
+                                                                            x_2ns(config.generateProof() ? NExtended : 0, config.generateProof() ? 1 : 0),
+                                                                            pAddress(_pAddress),
+                                                                            x(config.generateProof() ? N << (starkInfo.starkStruct.nBitsExt - starkInfo.starkStruct.nBits) : 0, config.generateProof() ? FIELD_EXTENSION : 0)
+    {
+        nrowsStepBatch = 1;
+        // Avoid unnecessary initialization if we are not going to generate any proof
+        if (!config.generateProof())
+            return;
+
+        // Allocate an area of memory, mapped to file, to read all the constant polynomials,
+        // and create them using the allocated address
+        TimerStart(LOAD_CONST_POLS_TO_MEMORY);
+        pConstPolsAddress =  pConstPolsAddress_;
+        constPolsDegree = (1 << starkInfo.starkStruct.nBits);
+        constPolsSize = starkInfo.nConstants * sizeof(Goldilocks::Element) * constPolsDegree;
+
+        pConstPols = new ConstantPolsStarks(pConstPolsAddress, constPolsSize, starkInfo.nConstants);
+
+        // Map constants tree file to memory
+        pConstTreeAddress = pConstTreeAddress_;
+    
+        // Initialize and allocate ConstantPols2ns
+        TimerStart(LOAD_CONST_POLS_2NS_TO_MEMORY);
+        pConstPolsAddress2ns = (void *)calloc(starkInfo.nConstants * (1 << starkInfo.starkStruct.nBitsExt), sizeof(Goldilocks::Element));
+        pConstPols2ns = new ConstantPolsStarks(pConstPolsAddress2ns, (1 << starkInfo.starkStruct.nBitsExt), starkInfo.nConstants);
+        std::memcpy(pConstPolsAddress2ns, (uint8_t *)pConstTreeAddress + 2 * sizeof(Goldilocks::Element), starkInfo.nConstants * (1 << starkInfo.starkStruct.nBitsExt) * sizeof(Goldilocks::Element));
+
+        TimerStopAndLog(LOAD_CONST_POLS_2NS_TO_MEMORY);
+
+        // TODO x_n and x_2ns could be precomputed
+        TimerStart(COMPUTE_X_N_AND_X_2_NS);
+        Goldilocks::Element xx = Goldilocks::one();
+        for (uint64_t i = 0; i < N; i++)
+        {
+            *x_n[i] = xx;
+            Goldilocks::mul(xx, xx, Goldilocks::w(starkInfo.starkStruct.nBits));
+        }
+        xx = Goldilocks::shift();
+        for (uint64_t i = 0; i < NExtended; i++)
+        {
+            *x_2ns[i] = xx;
+            Goldilocks::mul(xx, xx, Goldilocks::w(starkInfo.starkStruct.nBitsExt));
+        }
+        TimerStopAndLog(COMPUTE_X_N_AND_X_2_NS);
+
+        mem = (Goldilocks::Element *)pAddress;
+        pBuffer = &mem[starkInfo.mapTotalN];
+
+        p_cm1_2ns = &mem[starkInfo.mapOffsets.section[eSection::cm1_2ns]];
+        p_cm1_n = &mem[starkInfo.mapOffsets.section[eSection::cm1_n]];
+        p_cm2_2ns = &mem[starkInfo.mapOffsets.section[eSection::cm2_2ns]];
+        p_cm2_n = &mem[starkInfo.mapOffsets.section[eSection::cm2_n]];
+        p_cm3_2ns = &mem[starkInfo.mapOffsets.section[eSection::cm3_2ns]];
+        p_cm3_n = &mem[starkInfo.mapOffsets.section[eSection::cm3_n]];
+        cm4_2ns = &mem[starkInfo.mapOffsets.section[eSection::cm4_2ns]];
+        p_q_2ns = &mem[starkInfo.mapOffsets.section[eSection::q_2ns]];
+        p_f_2ns = &mem[starkInfo.mapOffsets.section[eSection::f_2ns]];
+
+        *x[0] = Goldilocks::shift();
+
+        uint64_t extendBits = starkInfo.starkStruct.nBitsExt - starkInfo.starkStruct.nBits;
+
+        for (uint64_t k = 1; k < (N << extendBits); k++)
+        {
+            Polinomial::mulElement(x, k, x, k - 1, (Goldilocks::Element &)Goldilocks::w(starkInfo.starkStruct.nBits + extendBits));
+        }
+
+        TimerStart(MERKLE_TREE_ALLOCATION);
+        treesGL[0] = new MerkleTreeGL(NExtended, starkInfo.mapSectionsN.section[eSection::cm1_n], p_cm1_2ns);
+        treesGL[1] = new MerkleTreeGL(NExtended, starkInfo.mapSectionsN.section[eSection::cm2_n], p_cm2_2ns);
+        treesGL[2] = new MerkleTreeGL(NExtended, starkInfo.mapSectionsN.section[eSection::cm3_n], p_cm3_2ns);
+        treesGL[3] = new MerkleTreeGL(NExtended, starkInfo.mapSectionsN.section[eSection::cm4_2ns], cm4_2ns);
+        treesGL[4] = new MerkleTreeGL((Goldilocks::Element *)pConstTreeAddress);
+        TimerStopAndLog(MERKLE_TREE_ALLOCATION);
+    };
+    
+    
     ~Starks()
     {
         if (!config.generateProof())
