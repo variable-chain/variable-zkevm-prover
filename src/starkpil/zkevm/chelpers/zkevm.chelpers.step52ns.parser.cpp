@@ -3,7 +3,11 @@
 #include "starks.hpp"
 #include "constant_pols_starks.hpp"
 #include "zkevmSteps.hpp"
+#ifndef __ZKPROVER_API__
 #include "zkevm.chelpers.step52ns.parser.hpp"
+#else
+#include "api_chelpers.step52ns.parser.hpp"
+#endif
 #include <immintrin.h>
 
 void ZkevmSteps::step52ns_parser_first_avx(StepsParams &params, uint64_t nrows, uint64_t nrowsBatch)

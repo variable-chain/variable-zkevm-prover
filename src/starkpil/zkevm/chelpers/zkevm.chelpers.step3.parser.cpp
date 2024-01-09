@@ -3,7 +3,11 @@
 #include "starks.hpp"
 #include "constant_pols_starks.hpp"
 #include "zkevmSteps.hpp"
+#ifndef __ZKPROVER_API__
 #include "zkevm.chelpers.step3.parser.hpp"
+#else
+#include "api_chelpers.step3.parser.hpp"
+#endif
 #include <immintrin.h>
 
 #define AVX_SIZE_ 4
