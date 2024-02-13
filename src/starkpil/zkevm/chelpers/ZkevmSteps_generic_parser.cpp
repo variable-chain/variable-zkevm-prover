@@ -5,6 +5,7 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserPar
     Polinomial &x = domainExtended ? params.x_2ns : params.x_n;
     ConstantPolsStarks *constPols = domainExtended ? params.pConstPols2ns : params.pConstPols;
     Goldilocks3::Element_avx challenges[params.challenges.degree()];
+    Goldilocks3::Element_avx challenges_ops[params.challenges.degree()];
 
     __m256i numbers[parserParams.nNumbers];
 
@@ -49,6 +50,14 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserPar
         challenges[i][0] = _mm256_set1_epi64x(params.challenges[i][0].fe);
         challenges[i][1] = _mm256_set1_epi64x(params.challenges[i][1].fe);
         challenges[i][2] = _mm256_set1_epi64x(params.challenges[i][2].fe);
+
+        Goldilocks::Element challenges_aux[3];
+        challenges_aux[0] = params.challenges[i][0] + params.challenges[i][1];
+        challenges_aux[1] = params.challenges[i][0] + params.challenges[i][2];
+        challenges_aux[2] = params.challenges[i][1] + params.challenges[i][2];
+        challenges_ops[i][0] = _mm256_set1_epi64x(challenges_aux[0].fe);
+        challenges_ops[i][1] =  _mm256_set1_epi64x(challenges_aux[1].fe);
+        challenges_ops[i][2] =  _mm256_set1_epi64x(challenges_aux[2].fe);
     }
 #pragma omp parallel for
     for(uint64_t i = 0; i < parserParams.nNumbers; ++i) {
@@ -373,6 +382,14 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserPar
                     break;
             }
             case 28: {
+                    // MULTIPLICATION WITH DEST: tmp3 - SRC0: commit3 - SRC1: challenge
+                    Goldilocks3::mul_avx(&(tmp3[parserParams.args[i_args + 1]][0]), 1, 
+                        &bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], 2, 
+                        challenges[parserParams.args[i_args + 5]], challenges_ops[parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    break;
+            }
+            case 29: {
                     // OPERATION WITH DEST: tmp3 - SRC0: commit3 - SRC1: challenge
                     Goldilocks3::op_avx(parserParams.args[i_args], &(tmp3[parserParams.args[i_args + 1]][0]), 1, 
                         &bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], 2, 
@@ -380,25 +397,31 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserPar
                     i_args += 6;
                     break;
             }
-            case 29: {
+            case 30: {
                     // OPERATION WITH DEST: tmp3 - SRC0: tmp3 - SRC1: tmp3
                     Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp3[parserParams.args[i_args + 3]]);
                     i_args += 4;
                     break;
             }
-            case 30: {
+            case 31: {
+                    // MULTIPLICATION WITH DEST: tmp3 - SRC0: tmp3 - SRC1: challenge
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    break;
+            }
+            case 32: {
                     // OPERATION WITH DEST: tmp3 - SRC0: tmp3 - SRC1: challenge
                     Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
                     i_args += 4;
                     break;
             }
-            case 31: {
+            case 33: {
                     // OPERATION WITH DEST: tmp3 - SRC0: eval - SRC1: commit1
                     Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], evals[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
                     i_args += 6;
                     break;
             }
-            case 32: {
+            case 34: {
                     // OPERATION WITH DEST: tmp3 - SRC0: commit3 - SRC1: eval
                     Goldilocks3::op_avx(parserParams.args[i_args], &(tmp3[parserParams.args[i_args + 1]][0]), 1, 
                         &bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], 2, 
@@ -406,21 +429,21 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserPar
                     i_args += 6;
                     break;
             }
-            case 33: {
+            case 35: {
                     // OPERATION WITH DEST: tmp3 - SRC0: tmp3 - SRC1: xDivXSubXi
                     Goldilocks3::load_avx(tmp3_1, params.xDivXSubXi[i], params.xDivXSubXi.offset());
                     Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp3_1);
                     i_args += 3;
                     break;
             }
-            case 34: {
+            case 36: {
                     // OPERATION WITH DEST: tmp3 - SRC0: tmp3 - SRC1: xDivXSubWXi
                     Goldilocks3::load_avx(tmp3_1, params.xDivXSubWXi[i], params.xDivXSubWXi.offset());
                     Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp3_1);
                     i_args += 3;
                     break;
             }
-            case 35: {
+            case 37: {
                     // OPERATION WITH DEST: q - SRC0: tmp3 - SRC1: Zi
                     Goldilocks::Element tmp_inv[3];
                     Goldilocks::Element ti0[4];
@@ -438,48 +461,44 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserPar
                     i_args += 1;
                     break;
             }
-            case 36: {
+            case 38: {
                     // OPERATION WITH DEST: f - SRC0: tmp3 - SRC1: tmp3
                     Goldilocks3::op_avx(parserParams.args[i_args], tmp3_, tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]]);
                     Goldilocks3::store_avx(&params.f_2ns[i*3], uint64_t(3), tmp3_);
                     i_args += 3;
                     break;
             }
-            case 37: {
-                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    break;
-            }
-            case 38: {
-                    Goldilocks::copy_avx(tmp1[parserParams.args[i_args]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 1]] + 2 * parserParams.args[i_args + 2] + parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks::copy_avx(tmp1[parserParams.args[i_args]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 1]] + 2 * parserParams.args[i_args + 2] + parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks::copy_avx(tmp1[parserParams.args[i_args]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 1]] + 2 * parserParams.args[i_args + 2] + parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks::copy_avx(tmp1[parserParams.args[i_args]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 1]] + 2 * parserParams.args[i_args + 2] + parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    break;
-            }
             case 39: {
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    break;
+            }
+            case 40: {
+                    Goldilocks::copy_avx(tmp1[parserParams.args[i_args]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 1]] + 2 * parserParams.args[i_args + 2] + parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks::copy_avx(tmp1[parserParams.args[i_args]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 1]] + 2 * parserParams.args[i_args + 2] + parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks::copy_avx(tmp1[parserParams.args[i_args]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 1]] + 2 * parserParams.args[i_args + 2] + parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks::copy_avx(tmp1[parserParams.args[i_args]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 1]] + 2 * parserParams.args[i_args + 2] + parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    break;
+            }
+            case 41: {
                     Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 5]] + 2 * parserParams.args[i_args + 6] + parserParams.args[i_args + 7]]);
                     i_args += 8;
                     Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 5]] + 2 * parserParams.args[i_args + 6] + parserParams.args[i_args + 7]]);
@@ -490,40 +509,20 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserPar
                     i_args += 6;
                     Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    break;
-            }
-            case 40: {
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 5]] + 2 * parserParams.args[i_args + 6] + parserParams.args[i_args + 7]]);
-                    i_args += 8;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 5]] + 2 * parserParams.args[i_args + 6] + parserParams.args[i_args + 7]]);
-                    i_args += 8;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    break;
-            }
-            case 41: {
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 5]] + 2 * parserParams.args[i_args + 6] + parserParams.args[i_args + 7]]);
-                    i_args += 8;
                     break;
             }
             case 42: {
                     Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], numbers[parserParams.args[i_args + 5]]);
-                    i_args += 6;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 5]] + 2 * parserParams.args[i_args + 6] + parserParams.args[i_args + 7]]);
+                    i_args += 8;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 5]] + 2 * parserParams.args[i_args + 6] + parserParams.args[i_args + 7]]);
+                    i_args += 8;
                     Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
                     break;
             }
             case 43: {
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], numbers[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
-                    i_args += 4;
                     Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
                     Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 5]] + 2 * parserParams.args[i_args + 6] + parserParams.args[i_args + 7]]);
@@ -531,8 +530,10 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserPar
                     break;
             }
             case 44: {
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 5]] + 2 * parserParams.args[i_args + 6] + parserParams.args[i_args + 7]]);
-                    i_args += 8;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], numbers[parserParams.args[i_args + 5]]);
+                    i_args += 6;
                     Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
                     break;
@@ -540,134 +541,183 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserPar
             case 45: {
                     Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], numbers[parserParams.args[i_args + 5]]);
                     i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
                     Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], numbers[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], numbers[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
                     Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], numbers[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], numbers[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], numbers[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 5]] + 2 * parserParams.args[i_args + 6] + parserParams.args[i_args + 7]]);
+                    i_args += 8;
                     break;
             }
             case 46: {
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
                     break;
             }
             case 47: {
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
-                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
-                    i_args += 6;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 5]] + 2 * parserParams.args[i_args + 6] + parserParams.args[i_args + 7]]);
+                    i_args += 8;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    i_args += 4;
                     break;
             }
             case 48: {
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], evals[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], numbers[parserParams.args[i_args + 5]]);
                     i_args += 6;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp3[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], evals[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
                     i_args += 6;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp3[parserParams.args[i_args + 3]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], evals[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], numbers[parserParams.args[i_args + 5]]);
                     i_args += 6;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp3[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
-                    i_args += 4;
-                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], evals[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
                     i_args += 6;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp3[parserParams.args[i_args + 3]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], numbers[parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], numbers[parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], numbers[parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], numbers[parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
+                    i_args += 6;
                     break;
             }
             case 49: {
-                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
                     i_args += 6;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
                     i_args += 6;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
                     i_args += 6;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
                     i_args += 6;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
                     i_args += 6;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
                     i_args += 6;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
                     i_args += 4;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], tmp1[parserParams.args[i_args + 2]], tmp1[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
+                    i_args += 6;
                     break;
             }
             case 50: {
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks::op_avx(parserParams.args[i_args], tmp1[parserParams.args[i_args + 1]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], tmp1[parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    break;
+            }
+            case 51: {
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], evals[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    i_args += 6;
                     Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp3[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], evals[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp3[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], evals[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp3[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], evals[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp3[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    break;
+            }
+            case 52: {
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::op_31_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 3]] + 2 * parserParams.args[i_args + 4] + parserParams.args[i_args + 5]]);
+                    i_args += 6;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    break;
+            }
+            case 53: {
+                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp3[parserParams.args[i_args + 3]]);
+                    i_args += 4;
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
                     i_args += 4;
                     Goldilocks3::op_avx(parserParams.args[i_args], &(tmp3[parserParams.args[i_args + 1]][0]), 1, 
                         &bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], 2, 
@@ -675,7 +725,7 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserPar
                     i_args += 6;
                     Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp3[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
                     i_args += 4;
                     Goldilocks3::op_avx(parserParams.args[i_args], &(tmp3[parserParams.args[i_args + 1]][0]), 1, 
                         &bufferT_[buffTOffsetsSteps_[parserParams.args[i_args + 2]] + 2 * parserParams.args[i_args + 3] + parserParams.args[i_args + 4]], 2, 
@@ -683,7 +733,7 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserPar
                     i_args += 6;
                     Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], tmp3[parserParams.args[i_args + 3]]);
                     i_args += 4;
-                    Goldilocks3::op_avx(parserParams.args[i_args], tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]]);
+                    Goldilocks3::mul_avx(tmp3[parserParams.args[i_args + 1]], tmp3[parserParams.args[i_args + 2]], challenges[parserParams.args[i_args + 3]], challenges_ops[parserParams.args[i_args + 3]]);
                     i_args += 4;
                     break;
             }
