@@ -17,7 +17,11 @@
 #include <immintrin.h>
 #include <cassert>
 
-const int CHELPERS_STAGES_SECTION = 2;
+
+const int CHELPERS_HEADER_SECTION = 2;
+const int CHELPERS_STAGES_SECTION = 3;
+const int CHELPERS_BUFFERS_SECTION = 4;
+
 struct ParserParams 
 {
     uint32_t stage;
@@ -25,11 +29,18 @@ struct ParserParams
     uint32_t nTemp1;
     uint32_t nTemp3;
     uint32_t nOps;
-    uint32_t *ops;
+    uint32_t opsOffset;
     uint32_t nArgs;
-    uint32_t *args;
+    uint32_t argsOffset;
     uint32_t nNumbers;
-    uint64_t *numbers;
+    uint64_t numbersOffset;
+};
+
+struct ParserArgs 
+{
+    uint8_t* ops;
+    uint32_t* args;
+    uint64_t* numbers;
 };
 
 class CHelpers
@@ -37,12 +48,12 @@ class CHelpers
 public:
     std::map<std::string, ParserParams> stagesInfo;
     
+    ParserArgs cHelpersArgs;
+
     ~CHelpers() {
-        for (auto it = stagesInfo.begin(); it != stagesInfo.end(); ++it) {  
-            delete[] it->second.ops;
-            delete[] it->second.args;
-            delete[] it->second.numbers;
-        }
+        delete[] cHelpersArgs.ops;
+        delete[] cHelpersArgs.args;
+        delete[] cHelpersArgs.numbers;
 
         stagesInfo.clear();
     };
