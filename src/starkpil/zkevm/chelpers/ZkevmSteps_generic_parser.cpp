@@ -9,7 +9,7 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserArg
 
     uint8_t *ops = &parserArgs.ops[parserParams.opsOffset];
 
-    uint32_t *args = &parserArgs.args[parserParams.argsOffset]; 
+    uint16_t *args = &parserArgs.args[parserParams.argsOffset]; 
 
     uint64_t* numbers = &parserArgs.numbers[parserParams.numbersOffset];
 
@@ -83,15 +83,16 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserArg
     }
 #pragma omp parallel for
     for (uint64_t i = 0; i < domainSize; i+= nrowsBatch) {
+        bool const needModule = i + nrowsBatch + nextStride >= domainSize;
         uint64_t i_args = 0;
 
         uint64_t offsetsDest[4];
         __m256i tmp1[parserParams.nTemp1];
         Goldilocks3::Element_avx tmp3[parserParams.nTemp3];
         Goldilocks3::Element_avx tmp3_;
-        Goldilocks3::Element_avx tmp3_0;
+        // Goldilocks3::Element_avx tmp3_0;
         Goldilocks3::Element_avx tmp3_1;
-        __m256i tmp1_0;
+        // __m256i tmp1_0;
         __m256i tmp1_1;
         __m256i bufferT_[2*nCols];
 
@@ -152,60 +153,85 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserArg
             case 0: {
                     // OPERATION WITH DEST: commit1 - SRC0: commit1 - SRC1: commit1
                     Goldilocks::op_avx(args[i_args], bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], bufferT_[buffTOffsetsSteps_[args[i_args + 4]] + 2 * args[i_args + 5] + args[i_args + 6]], bufferT_[buffTOffsetsSteps_[args[i_args + 7]] + 2 * args[i_args + 8] + args[i_args + 9]]);
-                    for(uint64_t j = 0; j < nrowsBatch; ++j) {
-                        uint64_t l = i + j + nextStride * args[i_args + 3];
-                        if(l >= domainSize) l -= domainSize;
-                        offsetsDest[j] = offsetsSteps[args[i_args + 1]] + args[i_args + 2] + l * nColsSteps[args[i_args + 1]];
+                    if(needModule) {
+                        uint64_t stepOffset = offsetsSteps[args[i_args + 1]] + args[i_args + 2];
+                        uint64_t nextStrideOffset = i + nextStride * args[i_args + 3];
+                        offsetsDest[0] = stepOffset + (nextStrideOffset % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[1] = stepOffset + ((nextStrideOffset + 1) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[2] = stepOffset + ((nextStrideOffset + 2) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[3] = stepOffset + ((nextStrideOffset + 3) % domainSize) * nColsSteps[args[i_args + 1]];
+                        Goldilocks::store_avx(&params.pols[0], offsetsDest, bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]]);
+                    } else {
+                        Goldilocks::store_avx(&params.pols[offsetsSteps[args[i_args + 1]] + args[i_args + 2] + (i + nextStride * args[i_args + 3]) * nColsSteps[args[i_args + 1]]], nColsSteps[args[i_args + 1]], bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]]);
                     }
-                    Goldilocks::store_avx(&params.pols[0], offsetsDest, bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]]);
                     i_args += 10;
                     break;
             }
             case 1: {
                     // OPERATION WITH DEST: commit1 - SRC0: commit1 - SRC1: tmp1
                     Goldilocks::op_avx(args[i_args], bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], bufferT_[buffTOffsetsSteps_[args[i_args + 4]] + 2 * args[i_args + 5] + args[i_args + 6]], tmp1[args[i_args + 7]]);
-                    for(uint64_t j = 0; j < nrowsBatch; ++j) {
-                        uint64_t l = i + j + nextStride * args[i_args + 3];
-                        if(l >= domainSize) l -= domainSize;
-                        offsetsDest[j] = offsetsSteps[args[i_args + 1]] + args[i_args + 2] + l * nColsSteps[args[i_args + 1]];
+                    if(needModule) {
+                        uint64_t stepOffset = offsetsSteps[args[i_args + 1]] + args[i_args + 2];
+                        uint64_t nextStrideOffset = i + nextStride * args[i_args + 3];
+                        offsetsDest[0] = stepOffset + (nextStrideOffset % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[1] = stepOffset + ((nextStrideOffset + 1) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[2] = stepOffset + ((nextStrideOffset + 2) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[3] = stepOffset + ((nextStrideOffset + 3) % domainSize) * nColsSteps[args[i_args + 1]];
+                        Goldilocks::store_avx(&params.pols[0], offsetsDest, bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]]);
+                    } else {
+                        Goldilocks::store_avx(&params.pols[offsetsSteps[args[i_args + 1]] + args[i_args + 2] + (i + nextStride * args[i_args + 3]) * nColsSteps[args[i_args + 1]]], nColsSteps[args[i_args + 1]], bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]]);
                     }
-                    Goldilocks::store_avx(&params.pols[0], offsetsDest, bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]]);
                     i_args += 8;
                     break;
             }
             case 2: {
                     // COPY tmp1 to commit1
                     Goldilocks::copy_avx(bufferT_[buffTOffsetsSteps_[args[i_args]] + 2 * args[i_args + 1] + args[i_args + 2]], tmp1[args[i_args + 3]]);
-                    for(uint64_t j = 0; j < nrowsBatch; ++j) {
-                        uint64_t l = i + j + nextStride * args[i_args + 2];
-                        if(l >= domainSize) l -= domainSize;
-                        offsetsDest[j] = offsetsSteps[args[i_args + 0]] + args[i_args + 1] + l * nColsSteps[args[i_args + 0]];
+                    if(needModule) {
+                        uint64_t stepOffset = offsetsSteps[args[i_args + 0]] + args[i_args + 1];
+                        uint64_t nextStrideOffset = i + nextStride * args[i_args + 2];
+                        offsetsDest[0] = stepOffset + (nextStrideOffset % domainSize) * nColsSteps[args[i_args + 0]];
+                        offsetsDest[1] = stepOffset + ((nextStrideOffset + 1) % domainSize) * nColsSteps[args[i_args + 0]];
+                        offsetsDest[2] = stepOffset + ((nextStrideOffset + 2) % domainSize) * nColsSteps[args[i_args + 0]];
+                        offsetsDest[3] = stepOffset + ((nextStrideOffset + 3) % domainSize) * nColsSteps[args[i_args + 0]];
+                        Goldilocks::store_avx(&params.pols[0], offsetsDest, bufferT_[buffTOffsetsSteps_[args[i_args + 0]] + 2 * args[i_args + 1] + args[i_args + 2]]);
+                    } else {
+                        Goldilocks::store_avx(&params.pols[offsetsSteps[args[i_args + 0]] + args[i_args + 1] + (i + nextStride * args[i_args + 2]) * nColsSteps[args[i_args + 0]]], nColsSteps[args[i_args + 0]], bufferT_[buffTOffsetsSteps_[args[i_args + 0]] + 2 * args[i_args + 1] + args[i_args + 2]]);
                     }
-                    Goldilocks::store_avx(&params.pols[0], offsetsDest, bufferT_[buffTOffsetsSteps_[args[i_args + 0]] + 2 * args[i_args + 1] + args[i_args + 2]]);
                     i_args += 4;
                     break;
             }
             case 3: {
                     // OPERATION WITH DEST: commit1 - SRC0: tmp1 - SRC1: tmp1
                     Goldilocks::op_avx(args[i_args], bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], tmp1[args[i_args + 4]], tmp1[args[i_args + 5]]);
-                    for(uint64_t j = 0; j < nrowsBatch; ++j) {
-                        uint64_t l = i + j + nextStride * args[i_args + 3];
-                        if(l >= domainSize) l -= domainSize;
-                        offsetsDest[j] = offsetsSteps[args[i_args + 1]] + args[i_args + 2] + l * nColsSteps[args[i_args + 1]];
+                    if(needModule) {
+                        uint64_t stepOffset = offsetsSteps[args[i_args + 1]] + args[i_args + 2];
+                        uint64_t nextStrideOffset = i + nextStride * args[i_args + 3];
+                        offsetsDest[0] = stepOffset + (nextStrideOffset % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[1] = stepOffset + ((nextStrideOffset + 1) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[2] = stepOffset + ((nextStrideOffset + 2) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[3] = stepOffset + ((nextStrideOffset + 3) % domainSize) * nColsSteps[args[i_args + 1]];
+                        Goldilocks::store_avx(&params.pols[0], offsetsDest, bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]]);
+                    } else {
+                        Goldilocks::store_avx(&params.pols[offsetsSteps[args[i_args + 1]] + args[i_args + 2] + (i + nextStride * args[i_args + 3]) * nColsSteps[args[i_args + 1]]], nColsSteps[args[i_args + 1]], bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]]);
                     }
-                    Goldilocks::store_avx(&params.pols[0], offsetsDest, bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]]);
                     i_args += 6;
                     break;
             }
             case 4: {
                     // OPERATION WITH DEST: commit1 - SRC0: tmp1 - SRC1: number
                     Goldilocks::op_avx(args[i_args], bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], tmp1[args[i_args + 4]], numbers_[args[i_args + 5]]);
-                    for(uint64_t j = 0; j < nrowsBatch; ++j) {
-                        uint64_t l = i + j + nextStride * args[i_args + 3];
-                        if(l >= domainSize) l -= domainSize;
-                        offsetsDest[j] = offsetsSteps[args[i_args + 1]] + args[i_args + 2] + l * nColsSteps[args[i_args + 1]];
+                    if(needModule) {
+                        uint64_t stepOffset = offsetsSteps[args[i_args + 1]] + args[i_args + 2];
+                        uint64_t nextStrideOffset = i + nextStride * args[i_args + 3];
+                        offsetsDest[0] = stepOffset + (nextStrideOffset % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[1] = stepOffset + ((nextStrideOffset + 1) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[2] = stepOffset + ((nextStrideOffset + 2) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[3] = stepOffset + ((nextStrideOffset + 3) % domainSize) * nColsSteps[args[i_args + 1]];
+                        Goldilocks::store_avx(&params.pols[0], offsetsDest, bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]]);
+                    } else {
+                        Goldilocks::store_avx(&params.pols[offsetsSteps[args[i_args + 1]] + args[i_args + 2] + (i + nextStride * args[i_args + 3]) * nColsSteps[args[i_args + 1]]], nColsSteps[args[i_args + 1]], bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]]);
                     }
-                    Goldilocks::store_avx(&params.pols[0], offsetsDest, bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]]);
                     i_args += 6;
                     break;
             }
@@ -268,12 +294,17 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserArg
                     Goldilocks3::op_31_avx(args[i_args], &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2, 
                         &(tmp3[args[i_args + 4]][0]), 1, 
                         tmp1[args[i_args + 5]]);
-                    for(uint64_t j = 0; j < nrowsBatch; ++j) {
-                        uint64_t l = i + j + nextStride * args[i_args + 3];
-                        if(l >= domainSize) l -= domainSize;
-                        offsetsDest[j] = offsetsSteps[args[i_args + 1]] + args[i_args + 2] + l * nColsSteps[args[i_args + 1]];
+                    if(needModule) {
+                        uint64_t stepOffset = offsetsSteps[args[i_args + 1]] + args[i_args + 2];
+                        uint64_t nextStrideOffset = i + nextStride * args[i_args + 3];
+                        offsetsDest[0] = stepOffset + (nextStrideOffset % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[1] = stepOffset + ((nextStrideOffset + 1) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[2] = stepOffset + ((nextStrideOffset + 2) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[3] = stepOffset + ((nextStrideOffset + 3) % domainSize) * nColsSteps[args[i_args + 1]];
+                        Goldilocks3::store_avx(&params.pols[0], offsetsDest, &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2);
+                    } else {
+                        Goldilocks3::store_avx(&params.pols[offsetsSteps[args[i_args + 1]] + args[i_args + 2] + (i + nextStride * args[i_args + 3]) * nColsSteps[args[i_args + 1]]], nColsSteps[args[i_args + 1]], &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2);
                     }
-                    Goldilocks3::store_avx(&params.pols[0], offsetsDest, &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2);
                     i_args += 6;
                     break;
             }
@@ -282,12 +313,17 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserArg
                     Goldilocks3::op_avx(args[i_args], &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2, 
                         &bufferT_[buffTOffsetsSteps_[args[i_args + 4]] + 2 * args[i_args + 5] + args[i_args + 6]], 2, 
                         &(tmp3[args[i_args + 7]][0]), 1);
-                    for(uint64_t j = 0; j < nrowsBatch; ++j) {
-                        uint64_t l = i + j + nextStride * args[i_args + 3];
-                        if(l >= domainSize) l -= domainSize;
-                        offsetsDest[j] = offsetsSteps[args[i_args + 1]] + args[i_args + 2] + l * nColsSteps[args[i_args + 1]];
+                    if(needModule) {
+                        uint64_t stepOffset = offsetsSteps[args[i_args + 1]] + args[i_args + 2];
+                        uint64_t nextStrideOffset = i + nextStride * args[i_args + 3];
+                        offsetsDest[0] = stepOffset + (nextStrideOffset % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[1] = stepOffset + ((nextStrideOffset + 1) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[2] = stepOffset + ((nextStrideOffset + 2) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[3] = stepOffset + ((nextStrideOffset + 3) % domainSize) * nColsSteps[args[i_args + 1]];
+                        Goldilocks3::store_avx(&params.pols[0], offsetsDest, &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2);
+                    } else {
+                        Goldilocks3::store_avx(&params.pols[offsetsSteps[args[i_args + 1]] + args[i_args + 2] + (i + nextStride * args[i_args + 3]) * nColsSteps[args[i_args + 1]]], nColsSteps[args[i_args + 1]], &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2);
                     }
-                    Goldilocks3::store_avx(&params.pols[0], offsetsDest, &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2);
                     i_args += 8;
                     break;
             }
@@ -296,12 +332,17 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserArg
                     Goldilocks3::op_avx(args[i_args], &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2, 
                         &(tmp3[args[i_args + 4]][0]), 1, 
                         &(tmp3[args[i_args + 5]][0]), 1);
-                    for(uint64_t j = 0; j < nrowsBatch; ++j) {
-                        uint64_t l = i + j + nextStride * args[i_args + 3];
-                        if(l >= domainSize) l -= domainSize;
-                        offsetsDest[j] = offsetsSteps[args[i_args + 1]] + args[i_args + 2] + l * nColsSteps[args[i_args + 1]];
+                    if(needModule) {
+                        uint64_t stepOffset = offsetsSteps[args[i_args + 1]] + args[i_args + 2];
+                        uint64_t nextStrideOffset = i + nextStride * args[i_args + 3];
+                        offsetsDest[0] = stepOffset + (nextStrideOffset % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[1] = stepOffset + ((nextStrideOffset + 1) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[2] = stepOffset + ((nextStrideOffset + 2) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[3] = stepOffset + ((nextStrideOffset + 3) % domainSize) * nColsSteps[args[i_args + 1]];
+                        Goldilocks3::store_avx(&params.pols[0], offsetsDest, &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2);
+                    } else {
+                        Goldilocks3::store_avx(&params.pols[offsetsSteps[args[i_args + 1]] + args[i_args + 2] + (i + nextStride * args[i_args + 3]) * nColsSteps[args[i_args + 1]]], nColsSteps[args[i_args + 1]], &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2);
                     }
-                    Goldilocks3::store_avx(&params.pols[0], offsetsDest, &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2);
                     i_args += 6;
                     break;
             }
@@ -310,12 +351,17 @@ void ZkevmSteps::parser_avx(StarkInfo &starkInfo, StepsParams &params, ParserArg
                     Goldilocks3::op_avx(args[i_args], &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2, 
                         &(tmp3[args[i_args + 4]][0]), 1, 
                         &(challenges[args[i_args + 5]][0]), 1);
-                    for(uint64_t j = 0; j < nrowsBatch; ++j) {
-                        uint64_t l = i + j + nextStride * args[i_args + 3];
-                        if(l >= domainSize) l -= domainSize;
-                        offsetsDest[j] = offsetsSteps[args[i_args + 1]] + args[i_args + 2] + l * nColsSteps[args[i_args + 1]];
+                    if(needModule) {
+                        uint64_t stepOffset = offsetsSteps[args[i_args + 1]] + args[i_args + 2];
+                        uint64_t nextStrideOffset = i + nextStride * args[i_args + 3];
+                        offsetsDest[0] = stepOffset + (nextStrideOffset % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[1] = stepOffset + ((nextStrideOffset + 1) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[2] = stepOffset + ((nextStrideOffset + 2) % domainSize) * nColsSteps[args[i_args + 1]];
+                        offsetsDest[3] = stepOffset + ((nextStrideOffset + 3) % domainSize) * nColsSteps[args[i_args + 1]];
+                        Goldilocks3::store_avx(&params.pols[0], offsetsDest, &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2);
+                    } else {
+                        Goldilocks3::store_avx(&params.pols[offsetsSteps[args[i_args + 1]] + args[i_args + 2] + (i + nextStride * args[i_args + 3]) * nColsSteps[args[i_args + 1]]], nColsSteps[args[i_args + 1]], &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2);
                     }
-                    Goldilocks3::store_avx(&params.pols[0], offsetsDest, &bufferT_[buffTOffsetsSteps_[args[i_args + 1]] + 2 * args[i_args + 2] + args[i_args + 3]], 2);
                     i_args += 6;
                     break;
             }

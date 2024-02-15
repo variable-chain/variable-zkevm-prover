@@ -39,7 +39,7 @@ struct ParserParams
 struct ParserArgs 
 {
     uint8_t* ops;
-    uint32_t* args;
+    uint16_t* args;
     uint64_t* numbers;
 };
 

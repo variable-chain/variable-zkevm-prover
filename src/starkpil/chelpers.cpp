@@ -9,7 +9,7 @@ void CHelpers::loadCHelpers(BinFileUtils::BinFile *cHelpersBin) {
     uint32_t nNumbers = cHelpersBin->readU32LE();
 
     cHelpersArgs.ops = new uint8_t[nOps];
-    cHelpersArgs.args = new uint32_t[nArgs];
+    cHelpersArgs.args = new uint16_t[nArgs];
     cHelpersArgs.numbers = new uint64_t[nNumbers];
 
     cHelpersBin->endReadSection();
@@ -54,7 +54,7 @@ void CHelpers::loadCHelpers(BinFileUtils::BinFile *cHelpersBin) {
         cHelpersArgs.ops[j] = cHelpersBin->readU8LE();
     }
     for(uint64_t j = 0; j < nArgs; ++j) {
-        cHelpersArgs.args[j] = cHelpersBin->readU32LE();
+        cHelpersArgs.args[j] = cHelpersBin->readU16LE();
     }
     for(uint64_t j = 0; j < nNumbers; ++j) {
         cHelpersArgs.numbers[j] = cHelpersBin->readU64LE();
