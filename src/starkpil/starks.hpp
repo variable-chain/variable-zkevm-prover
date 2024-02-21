@@ -10,7 +10,6 @@
 #include "friProofC12.hpp"
 #include "friProve.hpp"
 #include "transcript.hpp"
-#include "zhInv.hpp"
 #include "steps.hpp"
 #include "zklog.hpp"
 #include "exit_process.hpp"
@@ -42,13 +41,13 @@ private:
     ConstantPolsStarks *pConstPols2ns;
     void *pConstTreeAddress;
     StarkFiles starkFiles;
-    ZhInv zi;
     uint64_t N;
     uint64_t NExtended;
     NTT_Goldilocks ntt;
     NTT_Goldilocks nttExtended;
     Polinomial x_n;
     Polinomial x_2ns;
+    Polinomial zi;
     uint64_t constPolsSize;
     uint64_t constPolsDegree;
     MerkleTreeGL *treesGL[STARK_C12_A_NUM_TREES];
@@ -79,14 +78,13 @@ public:
     Starks(const Config &config, StarkFiles starkFiles, void *_pAddress) : config(config),
                                                                            starkInfo(config, starkFiles.zkevmStarkInfo),
                                                                            starkFiles(starkFiles),
-                                                                           zi(config.generateProof() ? starkInfo.starkStruct.nBits : 0,
-                                                                              config.generateProof() ? starkInfo.starkStruct.nBitsExt : 0),
                                                                            N(config.generateProof() ? 1 << starkInfo.starkStruct.nBits : 0),
                                                                            NExtended(config.generateProof() ? 1 << starkInfo.starkStruct.nBitsExt : 0),
                                                                            ntt(config.generateProof() ? 1 << starkInfo.starkStruct.nBits : 0),
                                                                            nttExtended(config.generateProof() ? 1 << starkInfo.starkStruct.nBitsExt : 0),
                                                                            x_n(config.generateProof() ? N : 0, config.generateProof() ? 1 : 0),
                                                                            x_2ns(config.generateProof() ? NExtended : 0, config.generateProof() ? 1 : 0),
+                                                                           zi(config.generateProof() ? NExtended : 0, config.generateProof() ? 1 : 0),
                                                                            pAddress(_pAddress),
                                                                            x(config.generateProof() ? N << (starkInfo.starkStruct.nBitsExt - starkInfo.starkStruct.nBits) : 0, config.generateProof() ? FIELD_EXTENSION : 0)
     {
@@ -163,6 +161,10 @@ public:
             Goldilocks::mul(xx, xx, Goldilocks::w(starkInfo.starkStruct.nBitsExt));
         }
         TimerStopAndLog(COMPUTE_X_N_AND_X_2_NS);
+
+        TimerStart(COMPUTE_ZHINV);
+        Polinomial::buildZHInv(zi, starkInfo.starkStruct.nBits, starkInfo.starkStruct.nBitsExt);
+        TimerStopAndLog(COMPUTE_ZHINV);
 
         mem = (Goldilocks::Element *)pAddress;
         pBuffer = &mem[starkInfo.mapTotalN];

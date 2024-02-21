@@ -3,7 +3,6 @@
 
 #include "stark_info.hpp"
 #include "transcriptBN128.hpp"
-#include "zhInv.hpp"
 #include "merklehash_goldilocks.hpp"
 #include "polinomial.hpp"
 #include "ntt_goldilocks.hpp"
@@ -36,13 +35,13 @@ private:
     ConstantPolsStarks *pConstPols;
     ConstantPolsStarks *pConstPols2ns;
     void *pConstTreeAddress;
-    ZhInv zi;
     uint64_t N;
     uint64_t NExtended;
     NTT_Goldilocks ntt;
     NTT_Goldilocks nttExtended;
     Polinomial x_n;
     Polinomial x_2ns;
+    Polinomial zi;
     uint64_t constPolsSize;
     uint64_t constPolsDegree;
 

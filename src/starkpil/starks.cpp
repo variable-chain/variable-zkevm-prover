@@ -14,8 +14,7 @@ void Starks::genProof(FRIProof &proof, Goldilocks::Element *publicInputs, Goldil
     uint64_t numCommited = starkInfo.nCm1;
     Transcript transcript;
     Polinomial evals(starkInfo.evMap.size(), FIELD_EXTENSION);
-    Polinomial xDivXSubXi(NExtended, FIELD_EXTENSION);
-    Polinomial xDivXSubWXi(NExtended, FIELD_EXTENSION);
+    Polinomial xDivXSubXi(2 * NExtended, FIELD_EXTENSION);
     Polinomial challenges(NUM_CHALLENGES, FIELD_EXTENSION);
 
     CommitPols cmPols(pAddress, starkInfo.mapDeg.section[eSection::cm1_n]);
@@ -37,7 +36,6 @@ void Starks::genProof(FRIProof &proof, Goldilocks::Element *publicInputs, Goldil
         zi : zi,
         evals : evals,
         xDivXSubXi : xDivXSubXi,
-        xDivXSubWXi : xDivXSubWXi,
         publicInputs : publicInputs,
         q_2ns : p_q_2ns,
         f_2ns : p_f_2ns
@@ -263,7 +261,7 @@ void Starks::genProof(FRIProof &proof, Goldilocks::Element *publicInputs, Goldil
     transcript.getField(challenges[5]); // v1
     transcript.getField(challenges[6]); // v2
 
-    // Calculate xDivXSubXi, xDivXSubWXi
+    // Calculate xDivXSubXi
     Polinomial xi(1, FIELD_EXTENSION);
     Polinomial wxi(1, FIELD_EXTENSION);
 
@@ -274,17 +272,16 @@ void Starks::genProof(FRIProof &proof, Goldilocks::Element *publicInputs, Goldil
     for (uint64_t k = 0; k < (N << extendBits); k++)
     {
         Polinomial::subElement(xDivXSubXi, k, x, k, xi, 0);
-        Polinomial::subElement(xDivXSubWXi, k, x, k, wxi, 0);
+        Polinomial::subElement(xDivXSubXi, k + NExtended, x, k, wxi, 0);
     }
 
     Polinomial::batchInverseParallel(xDivXSubXi, xDivXSubXi);
-    Polinomial::batchInverseParallel(xDivXSubWXi, xDivXSubWXi);
 
 #pragma omp parallel for
     for (uint64_t k = 0; k < (N << extendBits); k++)
     {
         Polinomial::mulElement(xDivXSubXi, k, xDivXSubXi, k, x, k);
-        Polinomial::mulElement(xDivXSubWXi, k, xDivXSubWXi, k, x, k);
+        Polinomial::mulElement(xDivXSubXi, k + NExtended, xDivXSubXi, k + NExtended, x, k);
     }
     TimerStopAndLog(STARK_STEP_5_XDIVXSUB);
     TimerStart(STARK_STEP_5_CALCULATE_EXPS);
