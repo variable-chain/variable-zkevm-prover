@@ -1,0 +1,17 @@
+version: "3.5"
+
+networks:
+  default:
+    name: cdk-Prover
+
+services:
+  zkevm-prover:
+    container_name: zkevm-prover
+    image: hermeznetwork/zkevm-prover:v3.0.2
+    ports:
+      - 50061:50061 # MT
+      - 50071:50071 # Executor
+    volumes:
+      - ./prover.config.json:/usr/src/app/config.json
+    command: >
+      zkProver -c /usr/src/app/config.json

@@ -1,0 +1,28 @@
+version: "3.5"
+
+networks:
+  default:
+    name: ProverDB
+
+services:
+  zkevm-state-db:
+    container_name: zkevm-state-db
+    image: postgres:15
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    ports:
+      - 5432:5432
+    volumes:
+      - ./init_prover_db.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      - POSTGRES_USER=state_user
+      - POSTGRES_PASSWORD=state_password
+      - POSTGRES_DB=state_db
+    command:
+      - "postgres"
+      - "-N"
+      - "500"
